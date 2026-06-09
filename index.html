@@ -1,0 +1,1648 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravitational Wave Signal & SNR Simulator | ACC-LAB-401</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    },
+                    boxShadow: {
+                        emerald: '0 0 15px rgba(16, 185, 129, 0.4)',
+                        cyan: '0 0 15px rgba(6, 182, 212, 0.4)',
+                        amber: '0 0 15px rgba(245, 158, 11, 0.4)',
+                        red: '0 0 15px rgba(239, 68, 68, 0.4)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- KaTeX for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        .oscilloscope-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(16, 185, 129, 0.08) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(16, 185, 129, 0.08) 1px, transparent 1px);
+        }
+        .scanlines {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            );
+            background-size: 100% 4px;
+        }
+        /* Custom scrollbar for slate theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased overflow-x-hidden">
+
+    <!-- Top Scientific Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 py-4 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="flex items-center gap-2 text-emerald-400 text-xs font-semibold tracking-widest uppercase">
+                    <i data-lucide="radio" class="w-4 h-4 animate-pulse"></i>
+                    Department of Advanced Communication Engineering
+                </div>
+                <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white mt-1">
+                    Gravitational Wave Transceiver Emulation Platform
+                </h1>
+                <div class="text-xs text-slate-400 mt-0.5">
+                    Course Code: <span class="font-mono text-slate-300">ACC-LAB-401</span> &bull; Status: <span class="text-emerald-400 font-medium">READY FOR TRANSMISSION</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <!-- Status Badge -->
+                <div id="status-badge" class="flex items-center gap-2 px-3 py-1.5 rounded border bg-emerald-950/40 border-emerald-800 text-emerald-400 text-xs font-mono font-semibold uppercase tracking-wider shadow-emerald shadow-sm transition-all duration-300">
+                    <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="status-text">LOCKED</span>
+                </div>
+
+                <!-- Sound Control -->
+                <button id="audio-btn" class="p-2 rounded bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center" title="Toggle Audio Emulation">
+                    <i data-lucide="volume-x" id="audio-icon" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <!-- Main Layout Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- COLUMN 1: CONTROLS & VARIABLES -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Card 1: Transmitted Signal Controls -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 backdrop-blur-sm shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-slate-800 pb-3 mb-4">
+                        <i data-lucide="sliders" class="w-5 h-5 text-emerald-400"></i>
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-200">1. Transmitted Signal (Graviton Modulation)</h2>
+                    </div>
+                    
+                    <div class="space-y-5">
+                        <!-- Amplitude Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs text-slate-300 flex items-center gap-1">
+                                    Amplitude (<span class="italic font-mono">A_m</span>)
+                                </label>
+                                <span id="amp-display" class="font-mono text-xs text-emerald-400 font-bold bg-slate-950 px-2 py-0.5 rounded border border-slate-800">5.0 V</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="adjustValue('amplitude', -0.5)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">-</button>
+                                <input type="range" id="amplitude" min="1" max="10" step="0.1" value="5.0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                                <button onclick="adjustValue('amplitude', 0.5)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Carrier Frequency Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs text-slate-300">
+                                    Carrier Frequency (<span class="italic font-mono">f_c</span>)
+                                </label>
+                                <span id="carrier-display" class="font-mono text-xs text-emerald-400 font-bold bg-slate-950 px-2 py-0.5 rounded border border-slate-800">120 Hz</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="adjustValue('carrier', -10)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">-</button>
+                                <input type="range" id="carrier" min="10" max="500" step="5" value="120" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                                <button onclick="adjustValue('carrier', 10)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Message Frequency Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs text-slate-300 flex items-center gap-1">
+                                    Message Frequency (<span class="italic font-mono">f_m</span>)
+                                    <span class="text-[9px] text-slate-500 font-mono">(Graviton Envelope)</span>
+                                </label>
+                                <span id="message-display" class="font-mono text-xs text-emerald-400 font-bold bg-slate-950 px-2 py-0.5 rounded border border-slate-800">8 Hz</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="adjustValue('message', -1)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">-</button>
+                                <input type="range" id="message" min="1" max="30" step="1" value="8" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                                <button onclick="adjustValue('message', 1)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Modulation Type Dropdown -->
+                        <div>
+                            <label class="block text-xs text-slate-300 mb-1">Modulation Scheme</label>
+                            <div class="relative">
+                                <select id="mod-type" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 outline-none focus:border-emerald-500 appearance-none font-mono cursor-pointer">
+                                    <option value="AM">AM (Amplitude Modulation)</option>
+                                    <option value="FM">FM (Frequency Modulation)</option>
+                                    <option value="PM">PM (Phase Modulation)</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Noise & Channel Emulation -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 backdrop-blur-sm shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-slate-800 pb-3 mb-4">
+                        <i data-lucide="zap-off" class="w-5 h-5 text-amber-400"></i>
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-200">2. Space-Time Channel & Noise</h2>
+                    </div>
+
+                    <div class="space-y-5">
+                        <!-- Noise Type Dropdown -->
+                        <div>
+                            <label class="block text-xs text-slate-300 mb-1">Noise Profile</label>
+                            <div class="relative">
+                                <select id="noise-type" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-lg p-2.5 outline-none focus:border-amber-500 appearance-none font-mono cursor-pointer">
+                                    <option value="AWGN">AWGN (Additive White Gaussian Noise)</option>
+                                    <option value="THERMAL">Thermal (Johnson-Nyquist) Noise</option>
+                                    <option value="JITTER">Phase Jitter Noise</option>
+                                    <option value="COSMIC">Cosmic Background & Bursts</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SNR Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs text-slate-300">
+                                    Signal-to-Noise Ratio (SNR)
+                                </label>
+                                <span id="snr-display" class="font-mono text-xs text-amber-400 font-bold bg-slate-950 px-2 py-0.5 rounded border border-slate-800">18.0 dB</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="adjustValue('snr', -1.0)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">-</button>
+                                <input type="range" id="snr" min="-10" max="30" step="0.5" value="18.0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                                <button onclick="adjustValue('snr', 1.0)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Temperature Slider (Thermal Only) -->
+                        <div id="thermal-controls" class="hidden transition-all duration-300">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs text-slate-300 flex items-center gap-1">
+                                    Cryo-Chamber Temperature (<span class="italic font-mono">T</span>)
+                                </label>
+                                <span id="temp-display" class="font-mono text-xs text-amber-400 font-bold bg-slate-950 px-2 py-0.5 rounded border border-slate-800">293 K</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="adjustValue('temp', -20)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">-</button>
+                                <input type="range" id="temp" min="4" max="500" step="5" value="293" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                                <button onclick="adjustValue('temp', 20)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">+</button>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-1 font-mono">Cooling towards 4 K (Liquid Helium) significantly reduces thermal floor spikes.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Antigravity Lab Variables (Sci-Fi) -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 backdrop-blur-sm shadow-xl">
+                    <div class="flex items-center gap-2 border-b border-slate-800 pb-3 mb-4">
+                        <i data-lucide="shield" class="w-5 h-5 text-cyan-400"></i>
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-200">3. Antigravity Propulsion Coupling</h2>
+                    </div>
+
+                    <div class="space-y-5">
+                        <!-- Quantum Coherence Efficiency Slider -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="text-xs text-slate-300 flex items-center gap-1">
+                                    Quantum Coherence (<span class="italic font-mono">E_q</span>)
+                                </label>
+                                <span id="coherence-display" class="font-mono text-xs text-cyan-400 font-bold bg-slate-950 px-2 py-0.5 rounded border border-slate-800">85%</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="adjustValue('coherence', -5)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">-</button>
+                                <input type="range" id="coherence" min="0" max="100" step="1" value="85" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                                <button onclick="adjustValue('coherence', 5)" class="w-7 h-7 flex items-center justify-center bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 text-sm font-bold font-mono">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="pt-2 grid grid-cols-2 gap-3">
+                            <button id="run-btn" class="flex items-center justify-center gap-2 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold tracking-wider uppercase transition-colors shadow-emerald shadow-sm">
+                                <i data-lucide="pause" id="run-icon" class="w-4 h-4"></i>
+                                <span id="run-text">PAUSE SIM</span>
+                            </button>
+                            
+                            <button id="sweep-btn" class="flex items-center justify-center gap-2 py-2 px-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 text-slate-300 hover:text-white rounded-lg text-xs font-semibold tracking-wider uppercase transition-all">
+                                <i data-lucide="refresh-cw" id="sweep-icon" class="w-4 h-4"></i>
+                                <span id="sweep-text">SWEEP: OFF</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- COLUMNS 2 & 3: TELEMETRY, GRAPHS & FORMULAS -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Telemetry Summary Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- Stability Card -->
+                    <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-md relative overflow-hidden group">
+                        <div class="absolute -right-3 -top-3 text-slate-800/20 group-hover:text-emerald-500/10 transition-colors pointer-events-none">
+                            <i data-lucide="shield-alert" class="w-16 h-16"></i>
+                        </div>
+                        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Field Stability</div>
+                        <div class="mt-2 flex items-baseline gap-1">
+                            <span id="tel-stability" class="text-2xl font-bold font-mono text-emerald-400">83.5</span>
+                            <span class="text-xs text-slate-400 font-mono">%</span>
+                        </div>
+                        <!-- Micro Mini stability bar -->
+                        <div class="w-full bg-slate-950 h-1 rounded overflow-hidden mt-3">
+                            <div id="tel-stability-bar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 83.5%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Noise Power Card -->
+                    <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-md relative overflow-hidden group">
+                        <div class="absolute -right-3 -top-3 text-slate-800/20 group-hover:text-amber-500/10 transition-colors pointer-events-none">
+                            <i data-lucide="zap" class="w-16 h-16"></i>
+                        </div>
+                        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Calculated Noise</div>
+                        <div class="mt-2 flex items-baseline gap-1">
+                            <span id="tel-noise" class="text-2xl font-bold font-mono text-amber-400">0.20</span>
+                            <span class="text-xs text-slate-400 font-mono">W</span>
+                        </div>
+                        <div class="text-[9px] text-slate-500 font-mono mt-3">P_s = <span id="tel-ps">12.5</span> W</div>
+                    </div>
+
+                    <!-- RMS Error Card -->
+                    <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-md relative overflow-hidden group">
+                        <div class="absolute -right-3 -top-3 text-slate-800/20 group-hover:text-cyan-500/10 transition-colors pointer-events-none">
+                            <i data-lucide="activity" class="w-16 h-16"></i>
+                        </div>
+                        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">RMS Channel Error</div>
+                        <div class="mt-2 flex items-baseline gap-1">
+                            <span id="tel-rmse" class="text-2xl font-bold font-mono text-cyan-400">0.45</span>
+                            <span class="text-xs text-slate-400 font-mono">V</span>
+                        </div>
+                        <div class="text-[9px] text-slate-500 font-mono mt-3">Calculated over N=512</div>
+                    </div>
+
+                    <!-- Grav Suppression Factor -->
+                    <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between shadow-md relative overflow-hidden group">
+                        <div class="absolute -right-3 -top-3 text-slate-800/20 group-hover:text-cyan-500/10 transition-colors pointer-events-none">
+                            <i data-lucide="scale" class="w-16 h-16"></i>
+                        </div>
+                        <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">G-Suppression Factor</div>
+                        <div class="mt-2 flex items-baseline gap-1">
+                            <span id="tel-suppression" class="text-2xl font-bold font-mono text-cyan-400">2.48</span>
+                            <span class="text-xs text-slate-400 font-mono">g</span>
+                        </div>
+                        <div class="text-[9px] text-slate-500 font-mono mt-3">Target coupling target</div>
+                    </div>
+                </div>
+
+                <!-- Plot 1: Time Domain Oscilloscope (Custom Canvas) -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-2xl relative">
+                    <!-- Cosmic Alert overlay -->
+                    <div id="cosmic-alert" class="hidden absolute inset-0 bg-red-950/70 border border-red-500 rounded-xl flex flex-col justify-center items-center gap-2 z-10 backdrop-blur-sm transition-all duration-300">
+                        <i data-lucide="alert-triangle" class="w-10 h-10 text-red-500 animate-bounce"></i>
+                        <span class="text-red-400 font-mono font-bold tracking-wider text-sm">WARNING: COSMIC RADIATION ANOMALY DETECTED</span>
+                        <span class="text-red-500 text-xs font-mono">TRANS-GRAVITATIONAL FLUX SATURATION IN PROGESS</span>
+                    </div>
+
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="monitor" class="w-5 h-5 text-emerald-400"></i>
+                            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-200">
+                                Analog Oscilloscope <span class="font-mono text-xs text-slate-400">(Time Domain Waveform)</span>
+                            </h2>
+                        </div>
+                        <div class="flex items-center gap-4 text-xs font-mono text-slate-400 bg-slate-950 px-3 py-1 rounded border border-slate-800">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_6px_#10b981]"></span>
+                                Transmitted $s(t)$
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <span id="rec-legend-dot" class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block shadow-[0_0_6px_#06b6d4]"></span>
+                                Received $r(t)$
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CRT Oscilloscope Screen Outer -->
+                    <div class="relative bg-slate-950 p-2 rounded-lg border-2 border-slate-800 shadow-inner overflow-hidden">
+                        <!-- Canvas Grid and Waveforms -->
+                        <canvas id="oscilloscope" width="800" height="280" class="w-full bg-[radial-gradient(circle,rgba(6,30,18,1)_0%,rgba(1,10,6,1)_100%)] rounded shadow-[0_0_20px_rgba(16,185,129,0.15)_inset] cursor-crosshair oscilloscope-grid block"></canvas>
+                        <!-- Scanline Overlay -->
+                        <div class="absolute inset-0 scanlines pointer-events-none opacity-40"></div>
+                        
+                        <!-- Oscilloscope Screen Dials HUD Overlay -->
+                        <div class="absolute bottom-4 left-4 font-mono text-[9px] text-emerald-500/70 pointer-events-none bg-slate-950/70 p-1.5 rounded border border-emerald-950">
+                            <div>TRIG: AUTO</div>
+                            <div>SOURCE: CH1</div>
+                        </div>
+                        <div class="absolute bottom-4 right-4 font-mono text-[9px] text-emerald-500/70 pointer-events-none bg-slate-950/70 p-1.5 rounded border border-emerald-950 text-right">
+                            <div>CH1: <span id="hud-vdiv">2.0</span>V/DIV</div>
+                            <div>TB: <span id="hud-tb">1.0</span>ms/DIV</div>
+                        </div>
+                    </div>
+
+                    <!-- CRT Knobs and Scope Control Panel underneath -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 bg-slate-950/40 p-3 rounded-lg border border-slate-800/80">
+                        <div>
+                            <label class="block text-[10px] text-slate-400 font-mono mb-1">Timebase (Sec/Div)</label>
+                            <input type="range" id="scope-tb" min="0.25" max="3" step="0.05" value="1.0" class="w-full h-1 bg-slate-800 rounded appearance-none accent-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-slate-400 font-mono mb-1">Gain (Volts/Div)</label>
+                            <input type="range" id="scope-vdiv" min="0.5" max="5" step="0.1" value="2.0" class="w-full h-1 bg-slate-800 rounded appearance-none accent-emerald-500">
+                        </div>
+                        <div class="flex items-center justify-end md:justify-center col-span-2 gap-3 pt-2 md:pt-0">
+                            <button id="scope-trigger" class="flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded font-mono text-[10px] text-slate-300 hover:text-white transition-all">
+                                <i data-lucide="target" class="w-3.5 h-3.5"></i>
+                                TRIG: <span id="trig-mode-text">AUTO</span>
+                            </button>
+                            <button id="export-csv" class="flex items-center gap-1.5 px-3 py-1 bg-slate-900 border border-slate-700 hover:border-slate-600 rounded font-mono text-[10px] text-slate-300 hover:text-white transition-all">
+                                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                EXPORT CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plot 2: Frequency Domain (Chart.js) -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-2xl">
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="bar-chart-2" class="w-5 h-5 text-cyan-400"></i>
+                            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-200">
+                                Power Spectral Density <span class="font-mono text-xs text-slate-400">(Real-Time FFT Analyzer)</span>
+                            </h2>
+                        </div>
+                        <div class="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                            N=512 pts &bull; Hanning Window
+                        </div>
+                    </div>
+
+                    <!-- Chart Container -->
+                    <div class="relative bg-slate-950 p-2 rounded-lg border border-slate-800 h-64">
+                        <canvas id="spectral-chart" class="w-full h-full"></canvas>
+                    </div>
+                </div>
+
+                <!-- Card: Theoretical Lab Formulations -->
+                <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-5 backdrop-blur-sm shadow-xl">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="file-text" class="w-5 h-5 text-slate-400"></i>
+                            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-200">Governing Lab Physics & Equations</h2>
+                        </div>
+                        <button id="report-btn" class="flex items-center gap-1.5 py-1 px-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded font-mono text-xs font-semibold uppercase tracking-wider transition-all shadow-cyan shadow-sm">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                            GENERATE LAB REPORT
+                        </button>
+                    </div>
+
+                    <!-- Formula Tabs -->
+                    <div class="flex border-b border-slate-800 text-xs font-mono mb-4">
+                        <button onclick="switchTab('mod-tab')" id="tab-mod-btn" class="px-4 py-2 border-b-2 border-emerald-500 text-slate-200 font-semibold focus:outline-none">Modulation Mechanics</button>
+                        <button onclick="switchTab('noise-tab')" id="tab-noise-btn" class="px-4 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-semibold focus:outline-none">Channel Noise Models</button>
+                        <button onclick="switchTab('prop-tab')" id="tab-prop-btn" class="px-4 py-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-semibold focus:outline-none">Antigravity Telemetry</button>
+                    </div>
+
+                    <!-- Active Formulation LaTeX display area -->
+                    <div class="bg-slate-950/80 p-5 rounded-lg border border-slate-800 min-h-[140px] flex flex-col justify-center items-center text-center">
+                        <div id="equation-display" class="overflow-x-auto max-w-full text-slate-200 text-sm md:text-base leading-relaxed py-2">
+                            <!-- Dynamically updated by KaTeX -->
+                        </div>
+                        <div id="equation-desc" class="text-xs text-slate-400 mt-3 max-w-lg font-sans">
+                            <!-- Description of variables -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Lab Report Modal -->
+    <div id="report-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden transition-all duration-300">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-800 bg-slate-950/80 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="file-bar-chart" class="w-5 h-5 text-cyan-400"></i>
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-200">Formal Lab Report Logbook Summary</h3>
+                </div>
+                <button id="close-modal" class="text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-300 font-sans flex-1" id="report-printout">
+                
+                <!-- Report Header Block -->
+                <div class="border-2 border-dashed border-slate-800 p-4 rounded bg-slate-950/50 font-mono text-xs">
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <div><span class="text-slate-500">FACULTY:</span> ADVANCED COMMUNICATION ENGINEERING</div>
+                        <div class="text-right"><span class="text-slate-500">DATE:</span> <span id="report-date">2026-06-09</span></div>
+                        <div><span class="text-slate-500">COURSE:</span> ACC-LAB-401</div>
+                        <div class="text-right"><span class="text-slate-500">LOG NO:</span> <span id="report-logid">GWT-8041-A</span></div>
+                        <div class="col-span-2 border-t border-slate-850 mt-1 pt-1"><span class="text-slate-500">SUBJECT:</span> GRAVITATIONAL WAVE TRANSCEIVER EMULATION LOG</div>
+                    </div>
+                </div>
+
+                <!-- Parameter Log table -->
+                <div>
+                    <h4 class="font-mono text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2 border-b border-slate-800 pb-1">1. System Setup Parameters</h4>
+                    <table class="w-full text-left font-mono text-xs border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-500">
+                                <th class="py-1">Parameter</th>
+                                <th class="py-1">Symbol</th>
+                                <th class="py-1 text-right">Configured Value</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-850">
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Modulation Scheme</td>
+                                <td class="py-1.5 italic font-serif">Mod</td>
+                                <td class="py-1.5 text-right font-bold text-slate-200" id="rep-mod">AM</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Carrier Frequency</td>
+                                <td class="py-1.5 italic font-serif">f_c</td>
+                                <td class="py-1.5 text-right text-slate-200" id="rep-fc">120 Hz</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Message Amplitude</td>
+                                <td class="py-1.5 italic font-serif">A_m</td>
+                                <td class="py-1.5 text-right text-slate-200" id="rep-am">5.0 V</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Noise Profile</td>
+                                <td class="py-1.5 italic font-serif">Noise</td>
+                                <td class="py-1.5 text-right text-slate-200 font-bold" id="rep-noise">AWGN</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Signal-to-Noise Ratio</td>
+                                <td class="py-1.5 italic font-serif">SNR</td>
+                                <td class="py-1.5 text-right text-slate-200" id="rep-snr">18.0 dB</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Quantum Coherence</td>
+                                <td class="py-1.5 italic font-serif">E_q</td>
+                                <td class="py-1.5 text-right text-slate-200" id="rep-eq">85%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Experimental Metrics -->
+                <div>
+                    <h4 class="font-mono text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2 border-b border-slate-800 pb-1">2. Analytical Experimental Telemetry</h4>
+                    <table class="w-full text-left font-mono text-xs border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-slate-500">
+                                <th class="py-1">Metric</th>
+                                <th class="py-1">Symbol</th>
+                                <th class="py-1 text-right">Computed Value</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-850">
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Transmitted Signal Power</td>
+                                <td class="py-1.5 italic font-serif">P_s</td>
+                                <td class="py-1.5 text-right text-slate-200" id="rep-ps">12.50 W</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Calculated Channel Noise Power</td>
+                                <td class="py-1.5 italic font-serif">P_n</td>
+                                <td class="py-1.5 text-right text-slate-200 font-bold" id="rep-pn">0.20 W</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Root Mean Square Channel Error</td>
+                                <td class="py-1.5 italic font-serif">RMSE</td>
+                                <td class="py-1.5 text-right text-slate-200" id="rep-rmse">0.45 V</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Antigravity Field Stability</td>
+                                <td class="py-1.5 italic font-serif">&eta;_f</td>
+                                <td class="py-1.5 text-right text-emerald-400 font-bold" id="rep-stability">83.5%</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1.5 text-slate-400">Field Suppression Factor</td>
+                                <td class="py-1.5 italic font-serif">S_g</td>
+                                <td class="py-1.5 text-right text-cyan-400 font-bold" id="rep-suppression">2.48 g</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Written Discussion block -->
+                <div>
+                    <h4 class="font-mono text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2 border-b border-slate-800 pb-1">3. Academic Laboratory Discussion</h4>
+                    <p class="leading-relaxed text-xs bg-slate-950/40 border border-slate-850 p-4 rounded text-slate-300 text-justify" id="report-discussion">
+                        <!-- Dynamically generated discussion paragraph -->
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Modal Actions -->
+            <div class="px-6 py-4 border-t border-slate-800 bg-slate-950/80 flex flex-col md:flex-row gap-3 justify-end items-center">
+                <button id="copy-report" class="w-full md:w-auto flex items-center justify-center gap-1.5 py-2 px-4 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-mono font-semibold uppercase tracking-wider transition-all">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                    COPY TEXT REPORT
+                </button>
+                <button id="close-modal-btn" class="w-full md:w-auto flex items-center justify-center py-2 px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold tracking-wider uppercase transition-all shadow-cyan shadow-sm">
+                    CLOSE REPORT
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-12 py-6 border-t border-slate-900 bg-slate-950 text-center text-[10px] font-mono text-slate-500">
+        ANTIGRAVITY EMULATION INSTRUMENTS DIVISION &bull; MODEL: GWT-401-PROP &bull; ACC-LAB-401 &copy; 2026
+    </footer>
+
+    <!-- JavaScript Signal processing and visualization logic -->
+    <script>
+        // Global variables for active equation tabs
+        let activeTab = 'mod-tab';
+
+        // Pre-allocated array sizes for Radix-2 FFT (N = 512)
+        const N = 512;
+        const Fs = 1024; // Sampling frequency
+        const dt = 1 / Fs;
+
+        // Buffers
+        const rawTimeBuffer = new Float32Array(N);
+        const transSignalBuffer = new Float32Array(N);
+        const recvSignalBuffer = new Float32Array(N);
+        const noiseBuffer = new Float32Array(N);
+        
+        // Windowed and imaginary components for FFT
+        const fftRe = new Float32Array(N);
+        const fftIm = new Float32Array(N);
+        const fftWindow = new Float32Array(N);
+
+        // Precompute Hann window to minimize allocations
+        for (let i = 0; i < N; i++) {
+            fftWindow[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (N - 1)));
+        }
+
+        // Bit Reversal table precomputation for Radix-2 FFT
+        const bitRevTable = new Int32Array(N);
+        for (let i = 0; i < N; i++) {
+            let rev = 0;
+            let temp = i;
+            for (let j = 0; j < 9; j++) { // log2(512) = 9
+                rev = (rev << 1) | (temp & 1);
+                temp >>= 1;
+            }
+            bitRevTable[i] = rev;
+        }
+
+        // Audio emulation variables
+        let audioCtx = null;
+        let carrierOsc = null;
+        let masterGain = null;
+        let noiseNode = null;
+        let noiseGain = null;
+        let isMuted = true;
+
+        // Simulation parameters
+        let isRunning = true;
+        let isSweeping = false;
+        let sweepDirection = 1;
+        let timeOffset = 0.0;
+        
+        // Cosmic interference burst variables
+        let cosmicBurstActive = false;
+        let cosmicBurstProgress = 0.0;
+        const cosmicBurstDuration = 45; // in frames (approx 0.75s)
+
+        // Web elements caching
+        const ampSlider = document.getElementById('amplitude');
+        const carrierSlider = document.getElementById('carrier');
+        const messageSlider = document.getElementById('message');
+        const snrSlider = document.getElementById('snr');
+        const tempSlider = document.getElementById('temp');
+        const coherenceSlider = document.getElementById('coherence');
+        const modSelect = document.getElementById('mod-type');
+        const noiseSelect = document.getElementById('noise-type');
+        
+        const ampDisplay = document.getElementById('amp-display');
+        const carrierDisplay = document.getElementById('carrier-display');
+        const messageDisplay = document.getElementById('message-display');
+        const snrDisplay = document.getElementById('snr-display');
+        const tempDisplay = document.getElementById('temp-display');
+        const coherenceDisplay = document.getElementById('coherence-display');
+
+        // Telemetry DOM elements
+        const telStability = document.getElementById('tel-stability');
+        const telStabilityBar = document.getElementById('tel-stability-bar');
+        const telNoise = document.getElementById('tel-noise');
+        const telPs = document.getElementById('tel-ps');
+        const telRmse = document.getElementById('tel-rmse');
+        const telSuppression = document.getElementById('tel-suppression');
+
+        // Status badge DOM elements
+        const statusBadge = document.getElementById('status-badge');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        // Sweep buttons
+        const sweepBtn = document.getElementById('sweep-btn');
+        const runBtn = document.getElementById('run-btn');
+
+        // HTML5 Canvas
+        const canvas = document.getElementById('oscilloscope');
+        const ctx = canvas.getContext('2d');
+        const scopeTbSlider = document.getElementById('scope-tb');
+        const scopeVdivSlider = document.getElementById('scope-vdiv');
+        const scopeTriggerBtn = document.getElementById('scope-trigger');
+
+        // Oscilloscope scale state
+        let scopeTimebase = 1.0; // scale factor
+        let scopeGain = 2.0; // Volts/Div scale
+        let scopeTriggerAuto = true; // Auto triggering phase lock
+
+        // Chart.js Configuration
+        let spectralChart = null;
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // 1. ITERATIVE IN-PLACE FFT (Cooley-Tukey Radix-2)
+        function performFFT(re, im) {
+            // Bit-reversal permutation
+            for (let i = 0; i < N; i++) {
+                const j = bitRevTable[i];
+                if (i < j) {
+                    let temp = re[i]; re[i] = re[j]; re[j] = temp;
+                    temp = im[i]; im[i] = im[j]; im[j] = temp;
+                }
+            }
+            
+            // Cooley-Tukey decimation-in-time
+            for (let len = 2; len <= N; len <<= 1) {
+                const angle = -2 * Math.PI / len;
+                const wlen_r = Math.cos(angle);
+                const wlen_i = Math.sin(angle);
+                
+                for (let i = 0; i < N; i += len) {
+                    let w_r = 1.0;
+                    let w_i = 0.0;
+                    const halfLen = len >> 1;
+                    for (let j = 0; j < halfLen; j++) {
+                        const u_idx = i + j;
+                        const v_idx = i + j + halfLen;
+                        
+                        // t = w * v
+                        const t_r = re[v_idx] * w_r - im[v_idx] * w_i;
+                        const t_i = re[v_idx] * w_i + im[v_idx] * w_r;
+                        
+                        re[v_idx] = re[u_idx] - t_r;
+                        im[v_idx] = im[u_idx] - t_i;
+                        re[u_idx] += t_r;
+                        im[u_idx] += t_i;
+                        
+                        // w = w * wlen
+                        const next_w_r = w_r * wlen_r - w_i * wlen_i;
+                        w_i = w_r * wlen_i + w_i * wlen_r;
+                        w_r = next_w_r;
+                    }
+                }
+            }
+        }
+
+        // Box-Muller Gaussian Noise Generator
+        function nextGaussian() {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        // Pink Noise generator (Low-pass filtered white noise for Cosmic Interference)
+        let lastPink = 0;
+        function nextPinkNoise() {
+            const white = nextGaussian();
+            lastPink = 0.88 * lastPink + 0.12 * white;
+            return lastPink;
+        }
+
+        // Web Audio Synthesizer Setup
+        function initAudio() {
+            if (audioCtx) return;
+            
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Carrier oscillator
+            carrierOsc = audioCtx.createOscillator();
+            carrierOsc.type = 'sine';
+            carrierOsc.frequency.value = parseFloat(carrierSlider.value);
+            
+            // Noise Node
+            const bufferSize = 2 * audioCtx.sampleRate;
+            const noiseBufferData = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBufferData.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = noiseBufferData;
+            noiseNode.loop = true;
+            
+            noiseGain = audioCtx.createGain();
+            noiseGain.gain.value = 0.0;
+            
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = isMuted ? 0.0 : 0.03; // low safe volume
+            
+            // Connections
+            carrierOsc.connect(masterGain);
+            noiseNode.connect(noiseGain);
+            noiseGain.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
+            
+            carrierOsc.start();
+            noiseNode.start();
+        }
+
+        // Audio controls
+        document.getElementById('audio-btn').addEventListener('click', () => {
+            if (!audioCtx) {
+                initAudio();
+            }
+            
+            isMuted = !isMuted;
+            const btn = document.getElementById('audio-btn');
+            const icon = document.getElementById('audio-icon');
+            
+            if (isMuted) {
+                masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                icon.setAttribute('data-lucide', 'volume-x');
+                btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                btn.classList.add('bg-slate-800', 'hover:bg-slate-700');
+            } else {
+                masterGain.gain.setValueAtTime(0.04, audioCtx.currentTime); // safe target gain
+                icon.setAttribute('data-lucide', 'volume-2');
+                btn.classList.remove('bg-slate-800', 'hover:bg-slate-700');
+                btn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+            }
+            lucide.createIcons();
+        });
+
+        // 2. MATHEMATICAL SIGNAL ENGINE
+        function calculateWaves(t, Am, fc, fm, modType, noiseType, snrVal, tempVal) {
+            // Message Wave (graviton message envelope)
+            const mt = Math.cos(2 * Math.PI * fm * t);
+            
+            // Transmitted Signal s(t)
+            let st = 0.0;
+            const Ac = 1.0; // Carrier Amplitude normalization
+            
+            if (modType === 'AM') {
+                // Amplitude modulation (carrier amplitude scaled, depth index m = 0.7)
+                st = Am * (0.6 + 0.4 * mt) * Math.cos(2 * Math.PI * fc * t);
+            } else if (modType === 'FM') {
+                // Frequency Modulation (modulation index beta = 5.0)
+                st = Am * Math.cos(2 * Math.PI * fc * t + 5.0 * Math.sin(2 * Math.PI * fm * t));
+            } else if (modType === 'PM') {
+                // Phase modulation (kp = 2.0)
+                st = Am * Math.cos(2 * Math.PI * fc * t + 2.0 * mt);
+            }
+
+            // Power calculations
+            const Ps = (Am * Am) / 2.0; // Average signal power
+            const Pn = Ps / Math.pow(10, snrVal / 10.0); // Noise power
+            
+            let noiseComponent = 0.0;
+            let rt = st; // Received signal
+
+            // Handle Noise types
+            if (noiseType === 'AWGN') {
+                const sigma = Math.sqrt(Pn);
+                noiseComponent = sigma * nextGaussian();
+                rt = st + noiseComponent;
+            } else if (noiseType === 'THERMAL') {
+                // Johnson-Nyquist thermal noise: scale added component based on temperature T
+                const thermalMultiplier = 0.001 * tempVal;
+                const totalPn = Pn + thermalMultiplier;
+                const sigma = Math.sqrt(totalPn);
+                noiseComponent = sigma * nextGaussian();
+                rt = st + noiseComponent;
+            } else if (noiseType === 'JITTER') {
+                // Jitter phase noise (perturbation of timeline).
+                // Phase variance maps to jitter in time variable.
+                const jitterDev = 0.15 * Math.sqrt(Pn) / (2 * Math.PI * fc); 
+                const t_jittered = t + jitterDev * nextGaussian();
+                
+                // Recalculate signal at jittered timestamp
+                let st_jit = 0;
+                const mt_jit = Math.cos(2 * Math.PI * fm * t_jittered);
+                if (modType === 'AM') {
+                    st_jit = Am * (0.6 + 0.4 * mt_jit) * Math.cos(2 * Math.PI * fc * t_jittered);
+                } else if (modType === 'FM') {
+                    st_jit = Am * Math.cos(2 * Math.PI * fc * t_jittered + 5.0 * Math.sin(2 * Math.PI * fm * t_jittered));
+                } else if (modType === 'PM') {
+                    st_jit = Am * Math.cos(2 * Math.PI * fc * t_jittered + 2.0 * mt_jit);
+                }
+                
+                // Add tiny broadband floor component
+                const smallFloorSigma = 0.04 * Math.sqrt(Pn);
+                noiseComponent = smallFloorSigma * nextGaussian();
+                rt = st_jit + noiseComponent;
+            } else if (noiseType === 'COSMIC') {
+                // Cosmic 1/f noise
+                const sigma = Math.sqrt(Pn);
+                noiseComponent = 1.2 * sigma * nextPinkNoise();
+                
+                // Add periodic cosmic bursts
+                if (cosmicBurstActive) {
+                    const burstTime = (cosmicBurstProgress / cosmicBurstDuration) * 0.5; // normalized 0 to 0.5s duration
+                    const burstAmp = 2.5 * Am * Math.exp(-Math.pow(burstTime - 0.25, 2) / 0.01);
+                    const burstNoise = burstAmp * Math.sin(2 * Math.PI * 180 * burstTime);
+                    noiseComponent += burstNoise;
+                }
+                
+                rt = st + noiseComponent;
+            }
+
+            return { st, rt, noise: noiseComponent, Ps, Pn };
+        }
+
+        // Switch Governing Physics formula tabs
+        function switchTab(tabId) {
+            activeTab = tabId;
+            const btnMod = document.getElementById('tab-mod-btn');
+            const btnNoise = document.getElementById('tab-noise-btn');
+            const btnProp = document.getElementById('tab-prop-btn');
+
+            btnMod.classList.replace('border-emerald-500', 'border-transparent');
+            btnMod.classList.replace('text-slate-200', 'text-slate-400');
+            btnNoise.classList.replace('border-emerald-500', 'border-transparent');
+            btnNoise.classList.replace('text-slate-200', 'text-slate-400');
+            btnProp.classList.replace('border-emerald-500', 'border-transparent');
+            btnProp.classList.replace('text-slate-200', 'text-slate-400');
+
+            if (tabId === 'mod-tab') {
+                btnMod.classList.replace('border-transparent', 'border-emerald-500');
+                btnMod.classList.replace('text-slate-400', 'text-slate-200');
+            } else if (tabId === 'noise-tab') {
+                btnNoise.classList.replace('border-transparent', 'border-emerald-500');
+                btnNoise.classList.replace('text-slate-400', 'text-slate-200');
+            } else {
+                btnProp.classList.replace('border-transparent', 'border-emerald-500');
+                btnProp.classList.replace('text-slate-400', 'text-slate-200');
+            }
+            updatePhysicsFormulas();
+        }
+
+        let lastFormulaState = {
+            modType: '',
+            noiseType: '',
+            Am: '',
+            fc: '',
+            fm: '',
+            snr: '',
+            temp: '',
+            coherence: '',
+            activeTab: ''
+        };
+
+        // Live KaTeX LaTeX formula updating
+        function updatePhysicsFormulas() {
+            const modType = modSelect.value;
+            const noiseType = noiseSelect.value;
+            const formulaDisplay = document.getElementById('equation-display');
+            const formulaDesc = document.getElementById('equation-desc');
+
+            const Am = parseFloat(ampSlider.value).toFixed(1);
+            const fc = carrierSlider.value;
+            const fm = messageSlider.value;
+            const snr = parseFloat(snrSlider.value).toFixed(1);
+            const temp = tempSlider.value;
+            const coherence = coherenceSlider.value;
+
+            // Check if state has changed to prevent DOM thrashing at 60 FPS
+            if (
+                lastFormulaState.modType === modType &&
+                lastFormulaState.noiseType === noiseType &&
+                lastFormulaState.Am === Am &&
+                lastFormulaState.fc === fc &&
+                lastFormulaState.fm === fm &&
+                lastFormulaState.snr === snr &&
+                lastFormulaState.temp === temp &&
+                lastFormulaState.coherence === coherence &&
+                lastFormulaState.activeTab === activeTab
+            ) {
+                return; // State unchanged, skip rendering
+            }
+
+            // Save active state
+            lastFormulaState = { modType, noiseType, Am, fc, fm, snr, temp, coherence, activeTab };
+
+            if (activeTab === 'mod-tab') {
+                if (modType === 'AM') {
+                    katex.render(
+                        `s(t) = ${Am} \\cdot [0.6 + 0.4 \\cos(2\\pi \\cdot ${fm} t)] \\cos(2\\pi \\cdot ${fc} t)`,
+                        formulaDisplay
+                    );
+                    formulaDesc.innerHTML = `<strong>Amplitude Modulation (AM):</strong> Carrier frequency <span class="font-mono text-emerald-400">${fc} Hz</span> modulated by a message envelope at <span class="font-mono text-emerald-400">${fm} Hz</span>. Maximum amplitude scaled to <span class="font-mono text-emerald-400">${Am} V</span>.`;
+                } else if (modType === 'FM') {
+                    katex.render(
+                        `s(t) = ${Am} \\cos\\left(2\\pi \\cdot ${fc} t + 5.0 \\sin(2\\pi \\cdot ${fm} t)\\right)`,
+                        formulaDisplay
+                    );
+                    formulaDesc.innerHTML = `<strong>Frequency Modulation (FM):</strong> Carrier wave frequency deviates dynamically centered at <span class="font-mono text-emerald-400">${fc} Hz</span> based on the modulating envelope with a modulation index of <span class="font-mono italic text-emerald-400">&beta; = 5.0</span>.`;
+                } else if (modType === 'PM') {
+                    katex.render(
+                        `s(t) = ${Am} \\cos\\left(2\\pi \\cdot ${fc} t + 2.0 \\cos(2\\pi \\cdot ${fm} t)\\right)`,
+                        formulaDisplay
+                    );
+                    formulaDesc.innerHTML = `<strong>Phase Modulation (PM):</strong> Phase of the graviton carrier wave shifted directly by the modulating wave with phase sensitivity <span class="font-mono italic text-emerald-400">k_p = 2.0</span> rad/V.`;
+                }
+            } else if (activeTab === 'noise-tab') {
+                if (noiseType === 'AWGN') {
+                    katex.render(
+                        `r(t) = s(t) + n(t), \\quad n(t) \\sim \\mathcal{N}(0, P_n) \\quad [\\text{SNR} = ${snr}\\text{ dB}]`,
+                        formulaDisplay
+                    );
+                    formulaDesc.innerHTML = `<strong>Additive White Gaussian Noise (AWGN):</strong> Flat power spectral density with normal amplitude distribution. Standard deviation of noise represents the noise floor at <span class="font-mono text-amber-400">${snr} dB</span> below signal level.`;
+                } else if (noiseType === 'THERMAL') {
+                    katex.render(
+                        `P_{total} = P_n + 4 k_B T \\Delta f \\quad [T = ${temp}\\text{ K}]`,
+                        formulaDisplay
+                    );
+                    formulaDesc.innerHTML = `<strong>Johnson-Nyquist Thermal Noise:</strong> Flat broadband noise added to the channel from thermodynamic fluctuations in the receiver antenna, scaled by receiver temperature <span class="font-mono text-amber-400">${temp} K</span>.`;
+                } else if (noiseType === 'JITTER') {
+                    katex.render(
+                        `r(t) = s(t + J(t)), \\quad J(t) \\sim \\mathcal{N}\\left(0, \\sigma_j^2\\right)`,
+                        formulaDisplay
+                    );
+                    formulaDesc.innerHTML = `<strong>Phase Jitter Noise:</strong> Time-axis fluctuations representing temporal instability in gravitational wave emitter clocks. Introduces high-frequency spectral phase noise tails around the carrier peak.`;
+                } else if (noiseType === 'COSMIC') {
+                    katex.render(
+                        `r(t) = s(t) + n_{1/f}(t) + p_{burst}(t)`,
+                        formulaDisplay
+                    );
+                    formulaDesc.innerHTML = `<strong>Cosmic Background & Bursts:</strong> Flickering pink noise background matching <span class="font-mono italic text-amber-400">1/f</span> spectral density, combined with random high-power transient anomalies from deep space radiation flares.`;
+                }
+            } else { // Antigravity metrics tab
+                katex.render(
+                    `\\mathcal{S} = {E_q} \\cdot \\frac{1}{1 + e^{-0.3(\\text{SNR} - 8)}} \\times 100\\%, \\quad S_g = \\frac{E_q}{100} \\log_{10}\\left(1 + 10^{\\frac{\\text{SNR}}{10}}\\right) \\cdot 1.618`,
+                    formulaDisplay
+                );
+                formulaDesc.innerHTML = `<strong>Propulsion Coupling:</strong> Core equations matching field stability index <span class="font-mono italic text-cyan-400">&eta;_f</span> (logistic fall-off centered at 8dB SNR) and the resulting Gravitational suppression suppression coefficient <span class="font-mono italic text-cyan-400">S_g</span> (in g).`;
+            }
+        }
+
+        // Initialize Chart.js for Power Spectral Density
+        function initChart() {
+            const ctxChart = document.getElementById('spectral-chart').getContext('2d');
+            
+            // Build initial labels (0 to Fs/2 = 512 Hz, resolution of Fs/N = 2Hz per bin)
+            const labels = [];
+            for (let i = 0; i < N / 2; i++) {
+                labels.push(`${(i * Fs / N).toFixed(0)}`);
+            }
+
+            const initialData = new Array(N / 2).fill(-90);
+
+            // Chart Configuration for fast rendering (animations disabled)
+            spectralChart = new Chart(ctxChart, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Power Spectral Density',
+                        data: initialData,
+                        borderColor: '#06b6d4',
+                        borderWidth: 1.5,
+                        backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                        fill: true,
+                        pointRadius: 0,
+                        pointHitRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    normalized: true,
+                    parsing: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'FREQUENCY (HZ)',
+                                color: '#94a3b8',
+                                font: { family: 'Fira Code', size: 9 }
+                            },
+                            grid: { color: 'rgba(51, 65, 85, 0.25)' },
+                            ticks: {
+                                color: '#64748b',
+                                font: { family: 'Fira Code', size: 8 }
+                            }
+                        },
+                        y: {
+                            min: -90,
+                            max: 15,
+                            title: {
+                                display: true,
+                                text: 'POWER DENSITY (DB)',
+                                color: '#94a3b8',
+                                font: { family: 'Fira Code', size: 9 }
+                            },
+                            grid: { color: 'rgba(51, 65, 85, 0.25)' },
+                            ticks: {
+                                color: '#64748b',
+                                font: { family: 'Fira Code', size: 8 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Sweep Control toggles
+        document.getElementById('sweep-btn').addEventListener('click', () => {
+            isSweeping = !isSweeping;
+            const btn = document.getElementById('sweep-btn');
+            const text = document.getElementById('sweep-text');
+            const icon = document.getElementById('sweep-icon');
+
+            if (isSweeping) {
+                text.textContent = "SWEEP: ON";
+                btn.classList.replace('bg-slate-800', 'bg-cyan-950/60');
+                btn.classList.replace('border-slate-700', 'border-cyan-800');
+                btn.classList.replace('text-slate-300', 'text-cyan-400');
+                icon.classList.add('animate-spin');
+            } else {
+                text.textContent = "SWEEP: OFF";
+                btn.classList.replace('bg-cyan-950/60', 'bg-slate-800');
+                btn.classList.replace('border-cyan-800', 'border-slate-700');
+                btn.classList.replace('text-cyan-400', 'text-slate-300');
+                icon.classList.remove('animate-spin');
+            }
+        });
+
+        // Run/Pause Toggle
+        document.getElementById('run-btn').addEventListener('click', () => {
+            isRunning = !isRunning;
+            const btn = document.getElementById('run-btn');
+            const text = document.getElementById('run-text');
+            const icon = document.getElementById('run-icon');
+
+            if (isRunning) {
+                text.textContent = "PAUSE SIM";
+                icon.setAttribute('data-lucide', 'pause');
+                btn.classList.replace('bg-amber-600', 'bg-emerald-600');
+                btn.classList.replace('hover:bg-amber-500', 'hover:bg-emerald-500');
+                btn.classList.replace('shadow-amber', 'shadow-emerald');
+            } else {
+                text.textContent = "RESUME SIM";
+                icon.setAttribute('data-lucide', 'play');
+                btn.classList.replace('bg-emerald-600', 'bg-amber-600');
+                btn.classList.replace('hover:bg-emerald-500', 'hover:bg-amber-500');
+                btn.classList.replace('shadow-emerald', 'shadow-amber');
+            }
+            lucide.createIcons();
+        });
+
+        // Trigger mode toggle
+        scopeTriggerBtn.addEventListener('click', () => {
+            scopeTriggerAuto = !scopeTriggerAuto;
+            document.getElementById('trig-mode-text').textContent = scopeTriggerAuto ? "AUTO" : "FREE RUN";
+        });
+
+        // Value increment/decrement helpers
+        window.adjustValue = function(type, delta) {
+            if (type === 'amplitude') {
+                let v = parseFloat(ampSlider.value) + delta;
+                ampSlider.value = Math.max(1, Math.min(10, v)).toFixed(1);
+            } else if (type === 'carrier') {
+                let v = parseInt(carrierSlider.value) + delta;
+                carrierSlider.value = Math.max(10, Math.min(500, v));
+            } else if (type === 'message') {
+                let v = parseInt(messageSlider.value) + delta;
+                messageSlider.value = Math.max(1, Math.min(30, v));
+            } else if (type === 'snr') {
+                let v = parseFloat(snrSlider.value) + delta;
+                snrSlider.value = Math.max(-10, Math.min(30, v)).toFixed(1);
+            } else if (type === 'temp') {
+                let v = parseInt(tempSlider.value) + delta;
+                tempSlider.value = Math.max(4, Math.min(500, v));
+            } else if (type === 'coherence') {
+                let v = parseInt(coherenceSlider.value) + delta;
+                coherenceSlider.value = Math.max(0, Math.min(100, v));
+            }
+            updatePhysicsFormulas();
+        };
+
+        // Render CRT Scope Oscilloscope Grid & Waves
+        function drawOscilloscope(transData, recvData, N_points) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const centerY = h / 2;
+
+            // Draw major grid divisions (10 horiz x 8 vert)
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.08)';
+            ctx.lineWidth = 1;
+            
+            // Vertical divisions
+            const xStep = w / 10;
+            for (let i = 1; i < 10; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * xStep, 0);
+                ctx.lineTo(i * xStep, h);
+                ctx.stroke();
+            }
+            
+            // Horizontal divisions
+            const yStep = h / 8;
+            for (let i = 1; i < 8; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * yStep);
+                ctx.lineTo(w, i * yStep);
+                ctx.stroke();
+            }
+
+            // Draw center axes with fine dashes
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.25)';
+            ctx.setLineDash([2, 2]);
+            
+            // Center Horiz
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(w, centerY);
+            ctx.stroke();
+
+            // Center Vert
+            ctx.beginPath();
+            ctx.moveTo(w / 2, 0);
+            ctx.lineTo(w / 2, h);
+            ctx.stroke();
+            
+            ctx.setLineDash([]); // clear dash state
+
+            // Render Transmitted wave s(t) (Emerald glow)
+            ctx.strokeStyle = '#34d399';
+            ctx.lineWidth = 2.0;
+            ctx.shadowColor = 'rgba(52, 211, 153, 0.5)';
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            
+            // Apply scale dials
+            const ampFactor = centerY / (4.0 * scopeGain); // mapping V to pixels
+
+            for (let x = 0; x < w; x++) {
+                // Map x pixel to index in time buffer (adjusted by scopeTimebase scale)
+                const tIdx = Math.floor((x / w) * (N_points - 1) * scopeTimebase);
+                const val = transData[Math.min(N_points - 1, tIdx)];
+                
+                const y = centerY - val * ampFactor;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Render Noisy Received wave r(t) (Color depends on status badge)
+            const snr = parseFloat(snrSlider.value);
+            let recvColor = '#22d3ee'; // Locked Cyan
+            let shadowColor = 'rgba(34, 211, 238, 0.4)';
+            
+            if (snr < 5) {
+                recvColor = '#ef4444'; // Red collapse
+                shadowColor = 'rgba(239, 68, 68, 0.4)';
+            } else if (snr < 15) {
+                recvColor = '#fbbf24'; // Amber degraded
+                shadowColor = 'rgba(251, 191, 36, 0.4)';
+            }
+
+            // Set styling for received wave
+            ctx.strokeStyle = recvColor;
+            ctx.lineWidth = 1.25;
+            ctx.shadowColor = shadowColor;
+            ctx.shadowBlur = 4;
+            
+            ctx.beginPath();
+            for (let x = 0; x < w; x++) {
+                const tIdx = Math.floor((x / w) * (N_points - 1) * scopeTimebase);
+                const val = recvData[Math.min(N_points - 1, tIdx)];
+                
+                const y = centerY - val * ampFactor;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Reset shadow state
+            ctx.shadowBlur = 0;
+        }
+
+        // CSV Lab Data exporter
+        document.getElementById('export-csv').addEventListener('click', () => {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Timestamp (s),Transmitted Signal s(t) (V),Received Noisy Signal r(t) (V),Noise Component n(t) (V)\n";
+
+            for (let i = 0; i < N; i++) {
+                const t = rawTimeBuffer[i];
+                const st = transSignalBuffer[i];
+                const rt = recvSignalBuffer[i];
+                const nt = noiseBuffer[i];
+                csvContent += `${t.toFixed(6)},${st.toFixed(4)},${rt.toFixed(4)},${nt.toFixed(4)}\n`;
+            }
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `gravitational_wave_sim_data.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // Modal triggers
+        const modal = document.getElementById('report-modal');
+        const openReportBtn = document.getElementById('report-btn');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const closeIconBtn = document.getElementById('close-modal');
+
+        openReportBtn.addEventListener('click', () => {
+            // Populate experimental details in modal log
+            document.getElementById('rep-mod').textContent = modSelect.value;
+            document.getElementById('rep-fc').textContent = carrierSlider.value + " Hz";
+            document.getElementById('rep-am').textContent = parseFloat(ampSlider.value).toFixed(1) + " V";
+            document.getElementById('rep-noise').textContent = noiseSelect.value;
+            document.getElementById('rep-snr').textContent = parseFloat(snrSlider.value).toFixed(1) + " dB";
+            document.getElementById('rep-eq').textContent = coherenceSlider.value + "%";
+
+            // Telemetry readings
+            document.getElementById('rep-ps').textContent = parseFloat(telPs.textContent).toFixed(2) + " W";
+            document.getElementById('rep-pn').textContent = parseFloat(telNoise.textContent).toFixed(4) + " W";
+            document.getElementById('rep-rmse').textContent = parseFloat(telRmse.textContent).toFixed(4) + " V";
+            document.getElementById('rep-stability').textContent = parseFloat(telStability.textContent).toFixed(1) + "%";
+            document.getElementById('rep-suppression').textContent = telSuppression.textContent + " g";
+            
+            // Randomize Logbook ID for extra realism
+            document.getElementById('report-logid').textContent = `GWT-${Math.floor(1000 + Math.random()*9000)}-${modSelect.value}`;
+
+            // Set current real date
+            const dateObj = new Date();
+            document.getElementById('report-date').textContent = dateObj.toISOString().split('T')[0];
+
+            // Generate Discussion Text Paragraph
+            const mod = modSelect.value;
+            const noise = noiseSelect.value;
+            const snr = parseFloat(snrSlider.value);
+            const coherence = parseInt(coherenceSlider.value);
+            const stability = parseFloat(telStability.textContent);
+            const suppress = telSuppression.textContent;
+
+            let discussion = `The gravitational wave transmission emulator was successfully locked under a ${mod} modulation scheme. `;
+            discussion += `To simulate channel degradation through the local space-time continuum, a ${noise} noise profile was injected at an SNR of ${snr.toFixed(1)} dB. `;
+            discussion += `With a quantum coherence efficiency configured at ${coherence}%, the overall antigravity field stability was evaluated at ${stability}%, yielding a net suppressive gravity factor of ${suppress} g. `;
+
+            if (snr < 5) {
+                discussion += `CRITICAL ERROR: A total field stability collapse occurred. The signal-to-noise ratio fell below the 5.0 dB locking threshold. Phase synchronisation could not be maintained, causing graviton suppression decoupling. Emergency cryo-shielding protocols are recommended.`;
+            } else if (snr < 15) {
+                discussion += `DEGRADED PERFORMANCE: The channel displays high noise levels, causing increased root-mean-square channel errors. The suppression field is maintained, but warning thresholds suggest substantial fluctuations in spatial distortion.`;
+            } else {
+                discussion += `STABLE LOCK: Complete phase lock achieved. The channel SNR is clean, minimizing spatial jitter. The gravitational suppression index conforms closely to theoretical parameters, validating the modulation design.`;
+            }
+            document.getElementById('report-discussion').textContent = discussion;
+
+            modal.classList.remove('hidden');
+        });
+
+        // Close modal
+        function hideModal() {
+            modal.classList.add('hidden');
+        }
+        closeModalBtn.addEventListener('click', hideModal);
+        closeIconBtn.addEventListener('click', hideModal);
+        
+        // Copy modal text content to clipboard
+        document.getElementById('copy-report').addEventListener('click', () => {
+            const reportTxt = document.getElementById('report-printout').innerText;
+            navigator.clipboard.writeText(reportTxt).then(() => {
+                const copyBtnText = document.querySelector('#copy-report span');
+                const orig = copyBtnText.textContent;
+                copyBtnText.textContent = "COPIED TO CLIPBOARD!";
+                setTimeout(() => copyBtnText.textContent = orig, 1500);
+            }).catch(err => {
+                alert("Failed to copy text: " + err);
+            });
+        });
+
+        // 3. MAIN RENDER LOOP & REAL-TIME UPDATERS
+        function updateSimulation() {
+            // Sliders variables
+            const Am = parseFloat(ampSlider.value);
+            const fc = parseFloat(carrierSlider.value);
+            const fm = parseFloat(messageSlider.value);
+            const snrVal = parseFloat(snrSlider.value);
+            const tempVal = parseInt(tempSlider.value);
+            const coherence = parseInt(coherenceSlider.value);
+            const modType = modSelect.value;
+            const noiseType = noiseSelect.value;
+
+            // Handle temperature element visibility
+            if (noiseType === 'THERMAL') {
+                document.getElementById('thermal-controls').classList.remove('hidden');
+            } else {
+                document.getElementById('thermal-controls').classList.add('hidden');
+            }
+
+            // Sync slide scales with scope HUD labels
+            document.getElementById('hud-vdiv').textContent = scopeGain;
+            document.getElementById('hud-tb').textContent = scopeTimebase;
+
+            // Sync visual numerical bubble values
+            ampDisplay.textContent = Am.toFixed(1) + " V";
+            carrierDisplay.textContent = fc + " Hz";
+            messageDisplay.textContent = fm + " Hz";
+            snrDisplay.textContent = snrVal.toFixed(1) + " dB";
+            tempDisplay.textContent = tempVal + " K";
+            coherenceDisplay.textContent = coherence + "%";
+
+            // Frequency Sweep mode handling
+            if (isSweeping && isRunning) {
+                let currentFc = parseFloat(carrierSlider.value);
+                currentFc += sweepDirection * 2.0; // sweep step size
+                if (currentFc >= 500) {
+                    currentFc = 500;
+                    sweepDirection = -1;
+                } else if (currentFc <= 10) {
+                    currentFc = 10;
+                    sweepDirection = 1;
+                }
+                carrierSlider.value = Math.floor(currentFc);
+                carrierDisplay.textContent = Math.floor(currentFc) + " Hz";
+            }
+
+            // Audio Nodes frequency/amp updating
+            if (audioCtx && !isMuted) {
+                carrierOsc.frequency.setValueAtTime(fc, audioCtx.currentTime);
+                
+                // Scale oscillator hum based on signal strength
+                const oscVolume = 0.035 * (Am / 10.0);
+                carrierOsc.frequency.value = fc;
+                
+                // Update noise volume based on current SNR calculations
+                const Ps = (Am * Am) / 2.0;
+                const Pn = Ps / Math.pow(10, snrVal / 10.0);
+                
+                // Clamp noise gain safely
+                const noiseTarget = Math.min(0.08, 0.05 * Math.sqrt(Pn) / Am);
+                noiseGain.gain.setValueAtTime(noiseTarget, audioCtx.currentTime);
+            }
+
+            // Populate the signal calculation buffers
+            let totalPs = 0;
+            let totalPn = 0;
+            let currentStability = 0.0;
+            let triggerPhaseOffset = 0.0;
+
+            // Auto triggering synchronization logic
+            // To prevent the oscilloscope wave from shaking frantically, we sync the phase offset
+            // to a constant trigger crossing point (usually when the transmitted wave crosses zero upward)
+            if (scopeTriggerAuto) {
+                // Find zero-crossing index of transmitted wave to reset oscilloscope start phase
+                // In a continuous frame simulation, this mimics stable analog scope trigger locking
+                const trigTime = - (timeOffset % (1 / fc));
+                triggerPhaseOffset = trigTime;
+            }
+
+            // Calculate arrays
+            for (let i = 0; i < N; i++) {
+                const t = (i * dt) + timeOffset + triggerPhaseOffset;
+                rawTimeBuffer[i] = t;
+
+                const calc = calculateWaves(t, Am, fc, fm, modType, noiseType, snrVal, tempVal);
+                transSignalBuffer[i] = calc.st;
+                recvSignalBuffer[i] = calc.rt;
+                noiseBuffer[i] = calc.noise;
+                totalPs += calc.Ps;
+                totalPn += calc.Pn;
+            }
+
+            const Ps_mean = totalPs / N;
+            const Pn_mean = totalPn / N;
+
+            // Cosmic burst handling updates
+            if (noiseType === 'COSMIC') {
+                if (cosmicBurstActive) {
+                    cosmicBurstProgress++;
+                    if (cosmicBurstProgress >= cosmicBurstDuration) {
+                        cosmicBurstActive = false;
+                        document.getElementById('cosmic-alert').classList.add('hidden');
+                    }
+                } else {
+                    // Random trigger probability
+                    if (Math.random() < 0.0035 && isRunning) {
+                        cosmicBurstActive = true;
+                        cosmicBurstProgress = 0;
+                        document.getElementById('cosmic-alert').classList.remove('hidden');
+                    }
+                }
+            } else {
+                cosmicBurstActive = false;
+                document.getElementById('cosmic-alert').classList.add('hidden');
+            }
+
+            // Calculate root-mean-square error (RMSE)
+            let sumSqDiff = 0.0;
+            for (let i = 0; i < N; i++) {
+                const diff = recvSignalBuffer[i] - transSignalBuffer[i];
+                sumSqDiff += diff * diff;
+            }
+            const rmse = Math.sqrt(sumSqDiff / N);
+
+            // Compute Antigravity Propulsion stability & suppression index
+            // Stability Index: logistic function falling off below 5dB SNR
+            const stabilityFactor = 1.0 / (1.0 + Math.exp(-0.35 * (snrVal - 7.5)));
+            currentStability = coherence * stabilityFactor;
+            
+            // Suppression factor: target coupling logic
+            const targetSuppression = (coherence / 100.0) * Math.log10(1 + Math.pow(10, snrVal / 10)) * 1.618;
+
+            // Lock indicator styling based on thresholds
+            if (snrVal >= 15.0) {
+                statusBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded border bg-emerald-950/40 border-emerald-800 text-emerald-400 text-xs font-mono font-semibold uppercase tracking-wider shadow-emerald shadow-sm transition-all duration-300";
+                statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                statusText.textContent = "LOCK: STABLE";
+                document.getElementById('rec-legend-dot').className = "w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block shadow-[0_0_6px_#06b6d4]";
+            } else if (snrVal >= 5.0) {
+                statusBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded border bg-amber-950/40 border-amber-850 text-amber-400 text-xs font-mono font-semibold uppercase tracking-wider shadow-amber shadow-sm transition-all duration-300";
+                statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping";
+                statusText.textContent = "LOCK: DEGRADED";
+                document.getElementById('rec-legend-dot').className = "w-2.5 h-2.5 rounded-full bg-amber-400 inline-block shadow-[0_0_6px_#f59e0b]";
+            } else {
+                statusBadge.className = "flex items-center gap-2 px-3 py-1.5 rounded border bg-red-950/60 border-red-800 text-red-500 text-xs font-mono font-semibold uppercase tracking-wider shadow-red shadow-sm transition-all duration-300 animate-pulse";
+                statusDot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+                statusText.textContent = "FIELD COLLAPSE";
+                document.getElementById('rec-legend-dot').className = "w-2.5 h-2.5 rounded-full bg-red-500 inline-block shadow-[0_0_6px_#ef4444]";
+            }
+
+            // Sync UI values
+            telStability.textContent = currentStability.toFixed(1);
+            telStabilityBar.style.width = `${currentStability}%`;
+            
+            // Adjust telemetry bar colors depending on stability percentage
+            if (currentStability >= 70.0) {
+                telStabilityBar.className = "bg-emerald-500 h-full transition-all duration-300";
+                telStability.className = "text-2xl font-bold font-mono text-emerald-400";
+            } else if (currentStability >= 30.0) {
+                telStabilityBar.className = "bg-amber-500 h-full transition-all duration-300";
+                telStability.className = "text-2xl font-bold font-mono text-amber-400";
+            } else {
+                telStabilityBar.className = "bg-red-500 h-full transition-all duration-300";
+                telStability.className = "text-2xl font-bold font-mono text-red-500";
+            }
+
+            telNoise.textContent = Pn_mean.toFixed(4);
+            telPs.textContent = Ps_mean.toFixed(2);
+            telRmse.textContent = rmse.toFixed(4);
+            telSuppression.textContent = targetSuppression.toFixed(2);
+
+            // Render waveforms on oscilloscope canvas
+            drawOscilloscope(transSignalBuffer, recvSignalBuffer, N);
+
+            // 4. SPECTRUM ANALYZER (FFT Calculation)
+            // Prepare Real and Imaginary components (Real = Noisy wave, Imaginary = 0)
+            for (let i = 0; i < N; i++) {
+                // Apply Hann window to received signal buffer to prevent leakage edges
+                fftRe[i] = recvSignalBuffer[i] * fftWindow[i];
+                fftIm[i] = 0.0;
+            }
+
+            // Execute Radix-2 FFT algorithm in-place
+            performFFT(fftRe, fftIm);
+
+            // Compute power spectral density values in dB
+            // X(f) = sqrt(Re^2 + Im^2)
+            // Power (dB) = 20 * log10( X(f) / N )
+            const dbSpectrum = [];
+            const binsToDisplay = N / 2; // only first half of frequency spectrum (0 to Nyquist)
+
+            for (let i = 0; i < binsToDisplay; i++) {
+                const magnitude = Math.sqrt(fftRe[i] * fftRe[i] + fftIm[i] * fftIm[i]);
+                // Normalized scale factor for display
+                const scaledMag = (magnitude * 2.0) / N;
+                let db = 20.0 * Math.log10(scaledMag + 1e-6);
+                
+                // Apply a baseline calibration offset to align spectrum curves
+                db = db + 6.0;
+
+                // Hard clamp bottom floor
+                if (db < -90) db = -90;
+                dbSpectrum.push(db);
+            }
+
+            // Push to Chart.js dataset
+            if (spectralChart) {
+                // Update spectrum line color dynamically based on SNR status
+                if (snrVal >= 15.0) {
+                    spectralChart.data.datasets[0].borderColor = '#06b6d4';
+                    spectralChart.data.datasets[0].backgroundColor = 'rgba(6, 182, 212, 0.05)';
+                } else if (snrVal >= 5.0) {
+                    spectralChart.data.datasets[0].borderColor = '#f59e0b';
+                    spectralChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.05)';
+                } else {
+                    spectralChart.data.datasets[0].borderColor = '#ef4444';
+                    spectralChart.data.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.05)';
+                }
+
+                // Push new array directly for speed
+                spectralChart.data.datasets[0].data = dbSpectrum;
+                spectralChart.update();
+            }
+
+            // Update equations values live
+            updatePhysicsFormulas();
+
+            // Advance time-offset frame for oscilloscope animations
+            if (isRunning) {
+                // Rate of sweep motion proportional to carrier
+                timeOffset += 0.00015;
+            }
+        }
+
+        // Animation Loop Trigger
+        function renderLoop() {
+            updateSimulation();
+            requestAnimationFrame(renderLoop);
+        }
+
+        // Setup scale event listeners
+        scopeTbSlider.addEventListener('input', (e) => {
+            scopeTimebase = parseFloat(e.target.value);
+        });
+        scopeVdivSlider.addEventListener('input', (e) => {
+            scopeGain = parseFloat(e.target.value);
+        });
+
+        // Initialize setup on page load
+        window.addEventListener('load', () => {
+            initChart();
+            switchTab('mod-tab');
+            renderLoop();
+        });
+    </script>
+</body>
+</html>
